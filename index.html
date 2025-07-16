@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoop Rush - NBA Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Basic CSS Reset */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        /* Main container for the game */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #02021a; /* Dark space blue */
+            color: #fff;
+        }
+
+        /* Canvas styling */
+        canvas {
+            display: block;
+            box-shadow: 0 0 35px rgba(255, 255, 255, 0.5); /* White glow */
+            border: 2px solid #fff; /* White border */
+            border-radius: 15px;
+        }
+
+        /* UI Overlay styling */
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 30px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin: 0;
+            /* Gradient text effect */
+            background: linear-gradient(to right, #ff1b1b, #fff, #006fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            text-shadow: none; /* Remove shadow to make gradient clearer */
+        }
+
+        #stats {
+            text-align: right;
+        }
+
+        #score, #timer {
+            font-size: 1.8em;
+            color: #ff1b1b; /* NBA Red */
+            font-weight: 700;
+            text-shadow: 0 0 8px #ff1b1b;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1em;
+            color: #fff;
+            background: rgba(10, 25, 47, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* Modal for game over */
+        #gameOverModal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 25, 47, 0.9);
+            border: 2px solid #fff;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            z-index: 20;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 0 50px rgba(255, 27, 27, 0.6);
+        }
+
+        #gameOverModal h2 {
+            font-size: 3em;
+            margin: 0;
+            color: #ff1b1b;
+            text-shadow: 0 0 15px #ff1b1b;
+        }
+
+        #finalScore {
+            font-size: 2em;
+        }
+
+        #restartButton {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            padding: 15px 30px;
+            border: 2px solid #fff;
+            background: transparent;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #restartButton:hover {
+            background: #fff;
+            color: #02021a;
+            box-shadow: 0 0 20px #fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- UI elements for score and timer -->
+    <div id="ui-container">
+        <h1>Hoop Rush</h1>
+        <div id="stats">
+            <div id="score">Score: 0</div>
+            <div id="timer">Time: 60</div>
+        </div>
+    </div>
+    <div id="controls">Aim with MOUSE, press SPACE for power, SPACE again to shoot!</div>
+
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal">
+        <h2>Time's Up!</h2>
+        <div id="finalScore">Final Score: 0</div>
+        <button id="restartButton">Play Again</button>
+    </div>
+
+    <!-- The p5.js sketch will be attached here -->
+    <script>
+        // --- Classes ---
+        class Ball {
+            constructor() {
+                this.radius = 15;
+                this.gravity = createVector(0, 0.3); // Reduced gravity for easier shots
+                this.reset();
+            }
+
+            shoot(angle, power) {
+                let force = p5.Vector.fromAngle(angle);
+                force.mult(power);
+                this.applyForce(force);
+            }
+
+            applyForce(force) {
+                this.acc.add(force);
+            }
+
+            update() {
+                this.vel.add(this.acc);
+                this.pos.add(this.vel);
+                this.acc.mult(0);
+                this.vel.add(this.gravity);
+                this.vel.mult(0.99); // Air resistance
+            }
+
+            draw() {
+                // Simplified ball drawing
+                fill('#d95f18'); // Classic basketball orange
+                noStroke();
+                ellipse(this.pos.x, this.pos.y, this.radius * 2);
+
+                // Add a subtle highlight for a 3D effect
+                let highlightX = this.pos.x - this.radius * 0.2;
+                let highlightY = this.pos.y - this.radius * 0.2;
+                fill(255, 180, 100, 150); // Lighter orange, semi-transparent
+                ellipse(highlightX, highlightY, this.radius * 1.2);
+            }
+            
+            reset() {
+                let margin = 50;
+                // Start ball in the lower half of the court
+                this.pos = createVector(random(margin, width - margin), random(height * 0.6, height - margin));
+                this.vel = createVector(0, 0);
+                this.acc = createVector(0, 0);
+                shotPower = 0;
+                gameState = 'AIM';
+            }
+
+            isOffscreen() {
+                return (this.pos.y > height + 100 || this.pos.x < -100 || this.pos.x > width + 100);
+            }
+        }
+
+        class Hoop {
+            constructor() {
+                // Position hoop at the top of the screen
+                this.pos = createVector(width / 2, height * 0.2);
+                this.rimWidth = 90; // Wider rim for easier shots
+                this.rimY = this.pos.y;
+                this.backboardWidth = 180;
+                this.backboardHeight = 120;
+                this.netSway = 0;
+            }
+
+            draw() {
+                // Animate net sway
+                if (this.netSway > 0) {
+                    this.netSway -= 0.5;
+                }
+
+                // Backboard
+                fill(20, 30, 80, 100); // Blue tint
+                stroke(255, 255, 255, 200); // White backboard lines
+                strokeWeight(4);
+                rectMode(CENTER);
+                // Position backboard relative to the hoop's center
+                rect(this.pos.x, this.pos.y - 30, this.backboardWidth, this.backboardHeight, 10);
+
+                // Draw the loaded logo image
+                if (nbaLogo) {
+                    imageMode(CENTER);
+                    image(nbaLogo, this.pos.x, this.pos.y - 30, 40, 80);
+                }
+                
+                // Rim
+                strokeWeight(5);
+                stroke(255, 27, 27, 250); // NBA Red
+                line(this.pos.x - this.rimWidth/2, this.rimY, this.pos.x + this.rimWidth/2, this.rimY);
+
+                // Net
+                stroke(255, 255, 255, 200); // White net
+                strokeWeight(2);
+                for(let i = 0; i <= 6; i++) {
+                    let x1 = this.pos.x - this.rimWidth/2 + (i/6) * this.rimWidth;
+                    let y1 = this.rimY;
+                    let x2 = this.pos.x + (i - 3) * 5 + this.netSway * (i-3); // Sway effect
+                    let y2 = this.rimY + 50;
+                    line(x1, y1, x2, y2);
+                }
+                rectMode(CORNER);
+            }
+
+            checkCollision(b) {
+                // **FIXED BACKBOARD PHYSICS**
+                // This logic creates a more predictable, less "ping-pong" like rebound.
+                let backboardPlaneX = this.pos.x;
+                let backboardTopY = this.pos.y - 30 - this.backboardHeight / 2;
+                let backboardBottomY = this.pos.y - 30 + this.backboardHeight / 2;
+
+                if (b.pos.y > backboardTopY && b.pos.y < backboardBottomY && b.pos.x + b.radius > backboardPlaneX && b.pos.x - b.radius < backboardPlaneX) {
+                    let prevX = b.pos.x - b.vel.x;
+                    if (prevX <= backboardPlaneX) {
+                        // Reverse horizontal velocity with some energy loss
+                        b.vel.x *= -0.7; 
+                        // Dampen vertical velocity to prevent wild bounces
+                        b.vel.y *= 0.8;
+                        // Add a slight downward push to guide the ball toward the hoop
+                        b.vel.y += 0.5;
+
+                        // Correct position to prevent sticking
+                        b.pos.x = backboardPlaneX - b.radius;
+                        createParticleExplosion(b.pos.x, b.pos.y, color(255, 255, 255));
+                    }
+                }
+                
+                // Scoring Logic
+                if (gameState === 'SHOOTING' && b.vel.y > 0) {
+                    let prevY = b.pos.y - b.vel.y;
+                    // Check if the ball crossed the rim's Y-plane in the last frame
+                    if (prevY < this.rimY && b.pos.y >= this.rimY) {
+                        // Check if the ball is horizontally within the rim
+                        if (b.pos.x > this.pos.x - this.rimWidth/2 && b.pos.x < this.pos.x + this.rimWidth/2) {
+                            this.scored();
+                        }
+                    }
+                }
+            }
+
+            scored() {
+                if (gameState !== 'SHOOTING') return;
+                gameState = 'SCORED';
+                score += 2;
+                scoreElement.textContent = `Score: ${score}`;
+                this.netSway = 10; // Trigger net animation
+                createParticleExplosion(this.pos.x, this.pos.y, color(255, 255, 0), 50);
+                setTimeout(ball.reset.bind(ball), 1000);
+            }
+        }
+
+        class Particle {
+            constructor(x, y, pColor) {
+                this.pos = createVector(x, y);
+                this.vel = p5.Vector.random2D().mult(random(1, 5));
+                this.acc = createVector(0, 0.1);
+                this.lifespan = 255;
+                this.pColor = pColor;
+            }
+
+            isFinished() { return this.lifespan < 0; }
+            update() {
+                this.vel.add(this.acc);
+                this.pos.add(this.vel);
+                this.lifespan -= 5;
+            }
+            draw() {
+                noStroke();
+                fill(red(this.pColor), green(this.pColor), blue(this.pColor), this.lifespan);
+                ellipse(this.pos.x, this.pos.y, 8);
+            }
+        }
+
+        // Game state variables
+        let ball, hoop, nbaLogo;
+        let particles = [], stars = [];
+        let gameState = 'AIM';
+        let score = 0, gameTime = 60;
+        let timerInterval, isGameOver = false;
+        let shotAngle = -Math.PI / 4, shotPower = 0, powerDirection = 1;
+
+        // UI Elements
+        let scoreElement, timerElement, gameOverModal, finalScoreElement, restartButton;
+
+        function preload() {
+            // Load the image here. You can replace this URL with your own.
+            nbaLogo = loadImage('https://placehold.co/40x80/png?text=LOGO');
+        }
+
+        function setup() {
+            const canvas = createCanvas(windowWidth * 0.9, windowHeight * 0.9);
+            canvas.parent(document.body);
+            
+            hoop = new Hoop();
+            ball = new Ball(); 
+            ball.reset();
+
+            // Create stars
+            for (let i = 0; i < 200; i++) {
+                stars.push({ x: random(width), y: random(height), size: random(1, 3), alpha: random(100, 255) });
+            }
+
+            scoreElement = document.getElementById('score');
+            timerElement = document.getElementById('timer');
+            gameOverModal = document.getElementById('gameOverModal');
+            finalScoreElement = document.getElementById('finalScore');
+            restartButton = document.getElementById('restartButton');
+
+            restartButton.addEventListener('click', restartGame);
+            startTimer();
+        }
+
+        function draw() {
+            if (isGameOver) return;
+            background(2, 2, 26, 150);
+            drawStars();
+            drawCourt();
+
+            updateGameState();
+
+            hoop.draw();
+            ball.draw();
+            drawUI();
+            
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].isFinished()) particles.splice(i, 1);
+            }
+        }
+
+        function updateGameState() {
+            switch(gameState) {
+                case 'POWER':
+                    shotPower += 0.5 * powerDirection;
+                    if (shotPower > 25 || shotPower < 0) powerDirection *= -1;
+                    break;
+                case 'SHOOTING':
+                    ball.update();
+                    hoop.checkCollision(ball);
+                    if (ball.isOffscreen()) {
+                        gameState = 'MISSED';
+                        setTimeout(ball.reset.bind(ball), 1000);
+                    }
+                    break;
+            }
+        }
+        
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                gameTime--;
+                timerElement.textContent = `Time: ${gameTime}`;
+                if (gameTime <= 0) endGame();
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            isGameOver = true;
+            finalScoreElement.textContent = `Final Score: ${score}`;
+            gameOverModal.style.display = 'flex';
+        }
+
+        function restartGame() {
+            score = 0;
+            gameTime = 60;
+            isGameOver = false;
+            scoreElement.textContent = `Score: ${score}`;
+            timerElement.textContent = `Time: ${gameTime}`;
+            gameOverModal.style.display = 'none';
+            ball.reset();
+            startTimer();
+        }
+
+        function keyPressed() {
+            if (isGameOver || keyCode !== 32) return;
+            if (gameState === 'AIM') gameState = 'POWER';
+            else if (gameState === 'POWER') {
+                gameState = 'SHOOTING';
+                ball.shoot(shotAngle, shotPower);
+            }
+        }
+        
+        function drawStars() {
+            noStroke();
+            for (const star of stars) {
+                fill(255, 255, 255, star.alpha);
+                ellipse(star.x, star.y, star.size);
+            }
+        }
+
+        function drawCourt() {
+            strokeWeight(4);
+            stroke(0, 111, 255, 200); // Blue court lines
+            noFill();
+            // 3-point line for half-court
+            arc(width/2, height, width * 1.2, height * 1.2, PI, TWO_PI);
+            // Key lines
+            let keyWidth = width * 0.3;
+            let keyHeight = height * 0.4;
+            rect(width/2 - keyWidth/2, height - keyHeight, keyWidth, keyHeight);
+        }
+
+        function drawUI() {
+            if (gameState === 'AIM') {
+                shotAngle = atan2(mouseY - ball.pos.y, mouseX - ball.pos.x);
+                let aimLength = dist(ball.pos.x, ball.pos.y, mouseX, mouseY);
+                aimLength = constrain(aimLength, 50, 150);
+                let endPos = createVector(ball.pos.x + aimLength * cos(shotAngle), ball.pos.y + aimLength * sin(shotAngle));
+                
+                stroke(255, 255, 255, 150); // White aiming line
+                strokeWeight(4);
+                line(ball.pos.x, ball.pos.y, endPos.x, endPos.y);
+
+            } else if (gameState === 'POWER') {
+                let meterWidth = 150;
+                let meterHeight = 20;
+                let x = ball.pos.x - meterWidth/2;
+                let y = ball.pos.y + 40;
+                
+                noFill();
+                stroke(255);
+                strokeWeight(2);
+                rect(x, y, meterWidth, meterHeight);
+
+                noStroke();
+                fill(255, 27, 27); // NBA Red for power
+                let powerWidth = map(shotPower, 0, 25, 0, meterWidth);
+                rect(x, y, powerWidth, meterHeight);
+            }
+        }
+
+        function createParticleExplosion(x, y, pColor, count = 20) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, pColor));
+            }
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth * 0.9, windowHeight * 0.9);
+            hoop = new Hoop();
+            ball.reset();
+            stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({ x: random(width), y: random(height), size: random(1, 3), alpha: random(100, 255) });
+            }
+        }
+    </script>
+</body>
+</html>
